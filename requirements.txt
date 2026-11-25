@@ -1,0 +1,26 @@
+# Aadhi Project — Requirements for MacBook M3 (Apple Silicon)
+
+# Deep Learning Framework (with MPS support)
+torch
+accelerate
+safetensors
+
+# Hugging Face ecosystem
+transformers
+tokenizers
+datasets
+
+# Tamil tokenization & text processing
+sentencepiece
+
+# Data handling & Math
+numpy
+pandas
+scikit-learn
+
+# Training progress & monitoring
+tqdm
+tensorboard
+
+# Interactive development
+jupyter

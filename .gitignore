@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# OS & Environment
+.DS_Store
+.env
+*.log
+
+# Large Raw PDFs & Backups
+data/pdfs/
+data/tamil_corpus_raw_backup.txt
