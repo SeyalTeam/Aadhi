@@ -14,3 +14,4 @@ __pycache__/
 # Large Raw PDFs & Backups
 data/pdfs/
 data/tamil_corpus_raw_backup.txt
+data/rag_index/
