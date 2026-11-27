@@ -20,6 +20,12 @@ SPM_MODEL_PATH = os.path.join(BASE_DIR, "tokenizer", "spm_tamil.model")
 SFT_WEIGHTS = os.path.join(BASE_DIR, "model", "aadhi_sft_weights.pt")
 PRETRAINED_WEIGHTS = os.path.join(BASE_DIR, "model", "aadhi_weights_spm.pt")
 
+try:
+    from rag.retriever import AadhiRAGRetriever
+    rag_retriever = AadhiRAGRetriever.get_instance()
+except Exception:
+    rag_retriever = None
+
 def get_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")
@@ -28,9 +34,12 @@ def get_device():
     return torch.device("cpu")
 
 @torch.no_grad()
-def generate_response(model, sp, user_query, is_sft=False, max_new_tokens=50, temperature=0.65, repetition_penalty=1.3):
+def generate_response(model, sp, user_query, is_sft=False, max_new_tokens=64, temperature=None, repetition_penalty=1.1):
     device = next(model.parameters()).device
     model.eval()
+
+    if temperature is None:
+        temperature = 0.2 if is_sft else 0.65
 
     if is_sft:
         prompt_text = f"கேள்வி: {user_query}\nபதில்:"
@@ -55,8 +64,8 @@ def generate_response(model, sp, user_query, is_sft=False, max_new_tokens=50, te
             else:
                 logits[0, token_id] *= repetition_penalty
 
-        logits = logits / temperature
-        v, _ = torch.topk(logits, min(20, logits.size(-1)))
+        logits = logits / max(temperature, 0.05)
+        v, _ = torch.topk(logits, min(5, logits.size(-1)))
         logits[logits < v[:, [-1]]] = -float("Inf")
 
         probs = F.softmax(logits, dim=-1)
@@ -69,7 +78,12 @@ def generate_response(model, sp, user_query, is_sft=False, max_new_tokens=50, te
 
     full_output = sp.decode_ids(idx[0].tolist())
     if is_sft and "பதில்:" in full_output:
-        return full_output.split("பதில்:")[-1].strip()
+        ans = full_output.split("பதில்:")[-1].strip()
+        if "." in ans:
+            sentences = [s.strip() for s in ans.split(".") if s.strip()]
+            if sentences:
+                ans = sentences[0] + "."
+        return ans
     return full_output.strip()
 
 def start_chat():
@@ -127,8 +141,19 @@ def start_chat():
                 print("நன்றி! ஆதி உரையாடல் அமர்வு நிறைவுற்றது.")
                 break
 
+            citation = None
+            if rag_retriever:
+                try:
+                    results = rag_retriever.retrieve(user_input, top_k=1, min_score=0.05)
+                    if results:
+                        citation = results[0]
+                except Exception:
+                    pass
+
             response = generate_response(model, sp, user_input, is_sft=is_sft)
             print(f"🤖 ஆதி > {response}")
+            if citation:
+                print(f"   📖 [ஆதார நூல்]: {citation['title']} (ஆசிரியர்: {citation['author']}) | பொருத்தம்: {int(citation['score']*100)}%")
 
         except KeyboardInterrupt:
             print("\nஅமர்வு நிறுத்தப்பட்டது.")
